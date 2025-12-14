@@ -1,10 +1,12 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk, messagebox
 import pandas as pd
 import numpy as np
 import random
+from PIL import Image, ImageTk
 
-# Sample product data
+# ---------------- DATA ---------------- #
+
 skin_products = {
     'dry': ['HydraBoost Moisturizer', 'Aloe Vera Gel', 'Ceramide Repair Cream'],
     'oily': ['Oil-Free Gel Moisturizer', 'Mattifying Serum', 'Tea Tree Face Wash'],
@@ -19,135 +21,327 @@ cosmetic_shades = {
     'concealer': ['Fair', 'Light', 'Medium', 'Tan', 'Deep']
 }
 
-# In-memory purchase history
-purchase_history = pd.DataFrame(columns=['Name', 'Product', 'Category', 'Price'])
+purchase_history = pd.DataFrame(
+    columns=['Name', 'Product', 'Category', 'Price', 'Rating']
+)
 
-# Initialize GUI
+# ---------------- ROOT ---------------- #
+
 root = tk.Tk()
+root.state("zoomed")
 root.title("CosmoCare 💄")
-root.geometry("600x600")
-root.configure(bg="#fff5f8")
+root.configure(bg="#ffe6f0")
 
 user_name = tk.StringVar()
 
+# ---------------- STYLE ---------------- #
+
+style = ttk.Style()
+style.theme_use("clam")
+
+style.configure(
+    "TButton",
+    font=("Helvetica", 12, "bold"),
+    padding=10
+)
+
+# 🔥 FIXED BEAUTIFUL COMBOBOX
+style.configure(
+    "Pink.TCombobox",
+    fieldbackground="#fff0f5",
+    background="#ffb6c1",
+    foreground="#333333",
+    arrowcolor="#ff1493",
+    padding=6
+)
+
+style.map(
+    "Pink.TCombobox",
+    fieldbackground=[("readonly", "#fff0f5")],
+    background=[("active", "#ff69b4"), ("readonly", "#ffb6c1")]
+)
+
+# ---------------- UTILS ---------------- #
+
 def clear_frame():
-    for widget in root.winfo_children():
-        widget.destroy()
+    for w in root.winfo_children():
+        w.destroy()
+
+def validate(func):
+    if not user_name.get().strip():
+        messagebox.showerror("Error", "Enter your name first 💖")
+        return
+    func()
+
+# ---------------- HOME ---------------- #
 
 def home_screen():
     clear_frame()
-    tk.Label(root, text="Welcome to CosmoCare 💄✨", font=("Arial", 22, 'bold'), bg="#fff5f8").pack(pady=20)
-    tk.Label(root, text="Enter your name:", font=("Arial", 14), bg="#fff5f8").pack()
-    tk.Entry(root, textvariable=user_name, font=("Arial", 14)).pack(pady=10)
 
-    tk.Button(root, text="Start Skin Care Quiz", font=("Arial", 12), bg="#f28ca2", command=skin_care_quiz).pack(pady=10)
-    tk.Button(root, text="Start Cosmetics Quiz", font=("Arial", 12), bg="#f28ca2", command=cosmetics_quiz).pack(pady=10)
-    tk.Button(root, text="View Purchase History", font=("Arial", 12), bg="#f28ca2", command=show_history).pack(pady=10)
-    tk.Button(root, text="Exit", font=("Arial", 12), bg="#f28ca2", command=root.destroy).pack(pady=10)
+    tk.Label(
+        root,
+        text="CosmoCare 💄✨",
+        font=("Helvetica", 28, "bold"),
+        bg="#ffe6f0",
+        fg="#ff1493"
+    ).pack(pady=20)
+
+    ttk.Entry(root, textvariable=user_name, width=25).pack(pady=10)
+
+    ttk.Button(root, text="🌿 Skin Care Quiz", command=lambda: validate(skin_care_quiz)).pack(pady=5)
+    ttk.Button(root, text="💋 Cosmetics Quiz", command=lambda: validate(cosmetics_quiz)).pack(pady=5)
+    ttk.Button(root, text="🧾 Purchase History", command=lambda: validate(show_history)).pack(pady=5)
+    ttk.Button(root, text="🚪 Exit", command=root.destroy).pack(pady=5)
+
+# ---------------- SKIN QUIZ ---------------- #
 
 def skin_care_quiz():
     clear_frame()
-    tk.Label(root, text="Skin Care Quiz 🌿", font=("Arial", 20, "bold"), bg="#fff5f8").pack(pady=20)
-    entries = {}
 
-    options = {
-        'Skin Type': ['dry', 'oily', 'normal', 'sensitive'],
-        'Allergies': ['yes', 'no'],
-        'Sun Exposure': ['low', 'medium', 'high'],
-        'Hydration Needed': ['yes', 'no'],
-        'Concern': ['acne', 'dryness', 'redness', 'aging']
+    tk.Label(
+        root,
+        text="Skin Care Quiz 🌿",
+        font=("Helvetica", 24, "bold"),
+        bg="#ffe6f0",
+        fg="#ff1493"
+    ).pack(pady=20)
+
+    frame = tk.Frame(root, bg="white", padx=35, pady=25)
+    frame.pack()
+
+    questions = {
+        "Skin Type": ["dry", "oily", "normal", "sensitive"],
+        "Main Concern": ["acne", "dryness", "redness", "aging"],
+        "Climate": ["humid", "dry", "cold"],
+        "Sun Exposure": ["low", "medium", "high"],
+        "Acne Frequency": ["rare", "sometimes", "often"],
+        "Skin Sensitivity": ["low", "medium", "high"]
     }
 
-    for key, vals in options.items():
-        tk.Label(root, text=key + ":", font=("Arial", 12), bg="#fff5f8").pack()
-        entries[key] = ttk.Combobox(root, values=vals, state="readonly")
-        entries[key].pack(pady=5)
+    entries = {}
 
-    def recommend_skin():
-        skin_type = entries['Skin Type'].get()
-        product = random.choice(skin_products.get(skin_type, ['Universal Moisturizer']))
-        price = round(np.random.uniform(10, 50), 2)
-        result = f"🎁 {product} - ₹{price}"
+    for i, (q, options) in enumerate(questions.items()):
+        tk.Label(
+            frame,
+            text=q,
+            font=("Helvetica", 14, "bold"),
+            bg="white"
+        ).grid(row=i, column=0, sticky="w", pady=10, padx=10)
 
-        if messagebox.askyesno("Recommended Product", result + "\n\nWould you like to buy this product?"):
+        cb = ttk.Combobox(
+            frame,
+            values=options,
+            state="readonly",
+            style="Pink.TCombobox",
+            font=("Helvetica", 13),
+            width=25
+        )
+        cb.grid(row=i, column=1, pady=10, padx=10)
+        entries[q] = cb
+
+    def recommend():
+        if not all(cb.get() for cb in entries.values()):
+            messagebox.showerror("Error", "Please answer all questions 🌸")
+            return
+
+        skin = entries["Skin Type"].get()
+        concern = entries["Main Concern"].get()
+        sensitivity = entries["Skin Sensitivity"].get()
+
+        # 🔥 LOGIC-BASED RECOMMENDATION
+        if sensitivity == "high":
+            product = "Fragrance-Free Soothing Cream"
+        elif skin == "oily" and concern == "acne":
+            product = "Tea Tree Acne Control Gel"
+        elif skin == "dry":
+            product = "Ceramide Repair Moisturizer"
+        else:
+            product = random.choice(skin_products[skin])
+
+        price = round(np.random.uniform(600, 1800), 2)
+
+        confirm = messagebox.askyesno(
+            "Recommendation Ready 💖",
+            f"Recommended Product:\n\n{product}\n\nPrice: ₹{price}\n\nDo you want to purchase?"
+        )
+
+        if confirm:
             global purchase_history
-            purchase_history = pd.concat([purchase_history, pd.DataFrame([{
-                'Name': user_name.get(),
-                'Product': product,
-                'Category': 'Skin Care',
-                'Price': price
-            }])], ignore_index=True)
-            messagebox.showinfo("Thank You", "Purchase successful! 💖")
+            purchase_history = pd.concat(
+                [purchase_history, pd.DataFrame([{
+                    "Name": user_name.get(),
+                    "Product": product,
+                    "Category": "Skin Care",
+                    "Price": price,
+                    "Rating": random.randint(4, 5)
+                }])],
+                ignore_index=True
+            )
+            summary_screen(product, "Skin Care", price)
 
-    tk.Button(root, text="Get Recommendation", command=recommend_skin, font=("Arial", 12), bg="#f28ca2").pack(pady=20)
-    tk.Button(root, text="⬅ Back", command=home_screen, font=("Arial", 10)).pack()
+    ttk.Button(
+        root,
+        text="✨ Get Recommendation",
+        command=recommend
+    ).pack(pady=20)
+
+    ttk.Button(
+        root,
+        text="⬅ Back",
+        command=home_screen
+    ).pack()
+
+# ---------------- COSMETICS QUIZ ---------------- #
 
 def cosmetics_quiz():
     clear_frame()
-    tk.Label(root, text="Cosmetics Quiz 💋", font=("Arial", 20, "bold"), bg="#fff5f8").pack(pady=20)
 
-    labels = [
-        "Skin Undertone", "Makeup Preference", "Eye Color", "Hair Color",
-        "Makeup Allergies", "Foundation Finish", "Skin Type",
-        "Product Type", "Outfit Tone", "Makeup Usage"
-    ]
-    values = [
-        ['cool', 'warm', 'neutral'], ['bold', 'natural'], ['brown', 'blue', 'green', 'other'],
-        ['black', 'brown', 'blonde', 'red', 'other'], ['yes', 'no'], ['matte', 'dewy', 'natural'],
-        ['oily', 'dry', 'combination'], ['liquid', 'powder'], ['bright', 'pastel', 'dark'], ['daily', 'occasionally']
-    ]
+    tk.Label(
+        root,
+        text="Cosmetics Quiz 💋",
+        font=("Helvetica", 24, "bold"),
+        bg="#ffe6f0",
+        fg="#ff1493"
+    ).pack(pady=20)
 
-    combos = []
-    for i in range(len(labels)):
-        tk.Label(root, text=labels[i] + ":", font=("Arial", 12), bg="#fff5f8").pack()
-        cb = ttk.Combobox(root, values=values[i], state="readonly")
-        cb.pack(pady=5)
-        combos.append(cb)
+    frame = tk.Frame(root, bg="white", padx=35, pady=25)
+    frame.pack()
+
+    questions = {
+        "Makeup Style": ["Natural", "Bold", "Party"],
+        "Skin Tone": ["Fair", "Medium", "Deep"],
+        "Occasion": ["Daily", "Office", "Wedding"],
+        "Coverage Preference": ["Light", "Medium", "Full"],
+        "Lip Color Preference": ["Nude", "Pink", "Red", "Berry"]
+    }
+
+    entries = {}
+
+    for i, (q, options) in enumerate(questions.items()):
+        tk.Label(
+            frame,
+            text=q,
+            font=("Helvetica", 14, "bold"),
+            bg="white"
+        ).grid(row=i, column=0, sticky="w", pady=10, padx=10)
+
+        cb = ttk.Combobox(
+            frame,
+            values=options,
+            state="readonly",
+            style="Pink.TCombobox",
+            font=("Helvetica", 13),
+            width=25
+        )
+        cb.grid(row=i, column=1, pady=10, padx=10)
+        entries[q] = cb
 
     def recommend_cosmetics():
-        lipstick = random.choice(cosmetic_shades['lipstick'])
-        blusher = random.choice(cosmetic_shades['blusher'])
-        foundation = random.choice(cosmetic_shades['foundation'])
-        concealer = random.choice(cosmetic_shades['concealer'])
-        price = round(np.random.uniform(15, 60), 2)
+        if not all(cb.get() for cb in entries.values()):
+            messagebox.showerror("Error", "Please answer all questions 💄")
+            return
 
-        result = f"💄 Lipstick: {lipstick}\n🥀 Blusher: {blusher}\n🪞 Foundation: {foundation}\n🖌 Concealer: {concealer}\n\nTotal: ₹{price}"
-        if messagebox.askyesno("Recommended Cosmetic Set", result + "\n\nWould you like to buy this set?"):
+        skin_tone = entries["Skin Tone"].get()
+        style = entries["Makeup Style"].get()
+        occasion = entries["Occasion"].get()
+        lip_pref = entries["Lip Color Preference"].get()
+
+        # 🎯 LOGIC-BASED RECOMMENDATIONS
+        lipstick = {
+            "Nude": "Nude Pink",
+            "Pink": "Rosewood",
+            "Red": "Ruby Red",
+            "Berry": "Berry Blast"
+        }[lip_pref]
+
+        foundation = {
+            "Fair": "Ivory",
+            "Medium": "Warm Sand",
+            "Deep": "Caramel"
+        }[skin_tone]
+
+        blusher = "Peach Glow" if style == "Natural" else "Rose Petal"
+        concealer = "Light" if skin_tone == "Fair" else "Medium"
+
+        product_text = f"""
+💄 Lipstick: {lipstick}
+🎨 Foundation: {foundation}
+🌸 Blusher: {blusher}
+✨ Concealer: {concealer}
+"""
+
+        price = round(np.random.uniform(1800, 4500), 2)
+
+        confirm = messagebox.askyesno(
+            "Your Cosmetic Recommendation 💖",
+            f"{product_text}\nTotal Price: ₹{price}\n\nDo you want to purchase?"
+        )
+
+        if confirm:
             global purchase_history
-            purchase_history = pd.concat([purchase_history, pd.DataFrame([{
-                'Name': user_name.get(),
-                'Product': f"Set: {lipstick}, {blusher}, {foundation}, {concealer}",
-                'Category': 'Cosmetics',
-                'Price': price
-            }])], ignore_index=True)
-            messagebox.showinfo("Purchase Confirmed", "You look fabulous! 💅")
+            purchase_history = pd.concat(
+                [purchase_history, pd.DataFrame([{
+                    "Name": user_name.get(),
+                    "Product": product_text.strip(),
+                    "Category": "Cosmetics",
+                    "Price": price,
+                    "Rating": random.randint(4, 5)
+                }])],
+                ignore_index=True
+            )
 
-    tk.Button(root, text="Get Cosmetic Recommendation", font=("Arial", 12), bg="#f28ca2", command=recommend_cosmetics).pack(pady=20)
-    tk.Button(root, text="⬅ Back", command=home_screen, font=("Arial", 10)).pack()
+            summary_screen(product_text, "Cosmetics", price)
+
+    ttk.Button(
+        root,
+        text="✨ Get My Recommendation",
+        command=recommend_cosmetics
+    ).pack(pady=20)
+
+    ttk.Button(
+        root,
+        text="⬅ Back",
+        command=home_screen
+    ).pack()
+
+# ---------------- SUMMARY ---------------- #
+
+def summary_screen(product, category, price):
+    clear_frame()
+
+    card = tk.Frame(root, bg="white", padx=40, pady=30)
+    card.pack(pady=60)
+
+    tk.Label(card, text="✨ Purchase Confirmed ✨", font=("Helvetica", 22, "bold"), fg="#ff1493", bg="white").pack()
+
+    tk.Label(card, text=f"\n{product}", bg="white", font=("Helvetica", 13)).pack()
+    tk.Label(card, text=f"\nCategory: {category}\nPrice: ₹{price}", bg="white").pack()
+
+    ttk.Button(card, text="🏠 Home", command=home_screen).pack(pady=10)
+
+# ---------------- HISTORY ---------------- #
 
 def show_history():
     clear_frame()
-    tk.Label(root, text="Purchase History 🧾", font=("Arial", 20, "bold"), bg="#fff5f8").pack(pady=20)
 
-    frame = tk.Frame(root, bg="#fff5f8")
-    frame.pack(fill=tk.BOTH, expand=True)
+    tk.Label(root, text="Purchase History 🧾", font=("Helvetica", 20, "bold")).pack(pady=20)
 
-    user_data = purchase_history[purchase_history['Name'] == user_name.get()]
-    if user_data.empty:
-        tk.Label(frame, text="No purchases yet.", font=("Arial", 14), bg="#fff5f8").pack()
+    data = purchase_history[purchase_history['Name'] == user_name.get()]
+
+    if data.empty:
+        tk.Label(root, text="No purchases yet").pack()
     else:
-        tree = ttk.Treeview(frame, columns=('Product', 'Category', 'Price'), show='headings')
-        tree.heading('Product', text='Product')
-        tree.heading('Category', text='Category')
-        tree.heading('Price', text='Price')
+        tree = ttk.Treeview(root, columns=("Product", "Category", "Price"), show="headings")
+        for col in tree["columns"]:
+            tree.heading(col, text=col)
+        for _, r in data.iterrows():
+            tree.insert("", tk.END, values=(r["Product"], r["Category"], r["Price"]))
+        tree.pack(expand=True)
 
-        for _, row in user_data.iterrows():
-            tree.insert('', tk.END, values=(row['Product'], row['Category'], f"₹{row['Price']}"))
+    ttk.Button(root, text="⬅ Back", command=home_screen).pack(pady=10)
 
-        tree.pack(fill=tk.BOTH, expand=True)
+# ---------------- START ---------------- #
 
-    tk.Button(root, text="⬅ Back", command=home_screen, font=("Arial", 10)).pack(pady=10)
-
-# Start the app
 home_screen()
 root.mainloop()
+
